@@ -20,7 +20,7 @@ from accelerate import Accelerator
 from datasets import load_dataset
 from peft import LoraConfig
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
 
 from trl import SFTTrainer, is_xpu_available
 
@@ -144,6 +144,8 @@ else:
     peft_config = None
 
 # Step 5: Define the Trainer
+tokenizer = AutoTokenizer.from_pretrained(script_args.model_name, use_fast=True)
+
 trainer = SFTTrainer(
     model=model,
     args=training_args,
@@ -152,6 +154,7 @@ trainer = SFTTrainer(
     eval_dataset=eval_dataset,
     dataset_text_field=script_args.dataset_text_field,
     peft_config=peft_config,
+    tokenizer=tokenizer,
 )
 
 trainer.train()
