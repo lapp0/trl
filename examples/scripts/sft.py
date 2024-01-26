@@ -12,55 +12,106 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+# regular:
+python examples/scripts/sft.py \
+    --model_name_or_path="facebook/opt-350m" \
+    --report_to="wandb" \
+    --learning_rate=1.41e-5 \
+    --per_device_train_batch_size=64 \
+    --gradient_accumulation_steps=16 \
+    --output_dir="sft_openassistant-guanaco" \
+    --logging_steps=1 \
+    --num_train_epochs=3 \
+    --max_steps=-1 \
+    --push_to_hub \
+    --gradient_checkpointing \
+
+# peft:
+python examples/scripts/sft.py \
+    --model_name_or_path="facebook/opt-350m" \
+    --report_to="wandb" \
+    --learning_rate=1.41e-5 \
+    --per_device_train_batch_size=64 \
+    --gradient_accumulation_steps=16 \
+    --output_dir="sft_openassistant-guanaco" \
+    --logging_steps=1 \
+    --num_train_epochs=3 \
+    --max_steps=-1 \
+    --push_to_hub \
+    --gradient_checkpointing \
+    --use_peft \
+    --lora_r=64 \
+    --lora_alpha=16
+"""
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 import torch
-from accelerate import Accelerator
 from datasets import load_dataset
-from peft import LoraConfig
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
+from transformers import AutoTokenizer, HfArgumentParser, TrainingArguments
 
-from trl import SFTTrainer, is_xpu_available
+from trl import ModelConfig, SFTTrainer, get_kbit_device_map, get_peft_config, get_quantization_config
 
 
 tqdm.pandas()
 
 
-# Define and parse arguments.
 @dataclass
 class ScriptArguments:
-    """
-    The name of the Casual LM model we wish to fine with SFTTrainer
-    """
+    dataset_name: str = field(default="timdettmers/openassistant-guanaco", metadata={"help": "the dataset name"})
+    dataset_text_field: str = field(default="text", metadata={"help": "the text field of the dataset"})
+    max_seq_length: int = field(default=512, metadata={"help": "The maximum sequence length for SFT Trainer"})
 
-    model_name: Optional[str] = field(default="facebook/opt-350m", metadata={"help": "the model name"})
-    dataset_name: Optional[str] = field(
-        default="timdettmers/openassistant-guanaco", metadata={"help": "the dataset name"}
+
+if __name__ == "__main__":
+    parser = HfArgumentParser((ScriptArguments, TrainingArguments, ModelConfig))
+    args, training_args, model_config = parser.parse_args_into_dataclasses()
+    training_args.gradient_checkpointing_kwargs = dict(use_reentrant=False)
+
+    ################
+    # Model & Tokenizer
+    ################
+    torch_dtype = (
+        model_config.torch_dtype
+        if model_config.torch_dtype in ["auto", None]
+        else getattr(torch, model_config.torch_dtype)
     )
-    dataset_text_field: Optional[str] = field(default="text", metadata={"help": "the text field of the dataset"})
-    report_to: Optional[str] = field(default="none", metadata={"help": "use 'wandb' to log with wandb"})
-    learning_rate: Optional[float] = field(default=1.41e-5, metadata={"help": "the learning rate"})
-    batch_size: Optional[int] = field(default=64, metadata={"help": "the batch size"})
-    seq_length: Optional[int] = field(default=512, metadata={"help": "Input sequence length"})
-    gradient_accumulation_steps: Optional[int] = field(
-        default=1, metadata={"help": "the number of gradient accumulation steps"}
+    quantization_config = get_quantization_config(model_config)
+    model_kwargs = dict(
+        revision=model_config.model_revision,
+        trust_remote_code=model_config.trust_remote_code,
+        attn_implementation=model_config.attn_implementation,
+        torch_dtype=torch_dtype,
+        use_cache=False if training_args.gradient_checkpointing else True,
+        device_map=get_kbit_device_map() if quantization_config is not None else None,
+        quantization_config=quantization_config,
     )
-    load_in_8bit: Optional[bool] = field(default=False, metadata={"help": "load the model in 8 bits precision"})
-    load_in_4bit: Optional[bool] = field(default=False, metadata={"help": "load the model in 4 bits precision"})
-    use_peft: Optional[bool] = field(default=False, metadata={"help": "Wether to use PEFT or not to train adapters"})
-    trust_remote_code: Optional[bool] = field(default=False, metadata={"help": "Enable `trust_remote_code`"})
-    output_dir: Optional[str] = field(default="output", metadata={"help": "the output directory"})
-    peft_lora_r: Optional[int] = field(default=64, metadata={"help": "the r parameter of the LoRA adapters"})
-    peft_lora_alpha: Optional[int] = field(default=16, metadata={"help": "the alpha parameter of the LoRA adapters"})
-    logging_steps: Optional[int] = field(default=1, metadata={"help": "the number of logging steps"})
-    use_auth_token: Optional[bool] = field(default=False, metadata={"help": "Use HF auth token to access the model"})
-    num_train_epochs: Optional[int] = field(default=3, metadata={"help": "the number of training epochs"})
-    max_steps: Optional[int] = field(default=-1, metadata={"help": "the number of training steps"})
-    save_steps: Optional[int] = field(
-        default=100, metadata={"help": "Number of updates steps before two checkpoint saves"}
+    tokenizer = AutoTokenizer.from_pretrained(model_config.model_name_or_path, use_fast=True)
+
+    ################
+    # Dataset
+    ################
+    raw_datasets = load_dataset(args.dataset_name)
+    train_dataset = raw_datasets["train"]
+    eval_dataset = raw_datasets["test"]
+
+    ################
+    # Training
+    ################
+    trainer = SFTTrainer(
+        model=model_config.model_name_or_path,
+        model_init_kwargs=model_kwargs,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        dataset_text_field="text",
+        max_seq_length=args.max_seq_length,
+        tokenizer=tokenizer,
+        packing=True,
+        peft_config=get_peft_config(model_config),
     )
+<<<<<<< HEAD
     save_total_limit: Optional[int] = field(default=10, metadata={"help": "Limits total number of checkpoints."})
     push_to_hub: Optional[bool] = field(default=False, metadata={"help": "Push the model to HF Hub"})
     fp16: Optional[bool] = field(default=False, metadata={"help": "Whether to activate fp16 mixed precision"})
@@ -169,3 +220,7 @@ trainer.save_model(script_args.output_dir)
 if script_args.push_to_hub:
     trainer.push_to_hub()
 #
+=======
+    trainer.train()
+    trainer.save_model(training_args.output_dir)
+>>>>>>> 9a71e67 (Remove tyro (#1176))
