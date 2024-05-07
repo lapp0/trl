@@ -266,7 +266,6 @@ class DynamicDataLoader:
 
     def __iter__(self):
         batch_buffer = []
-        import pdb;pdb.set_trace()
         for batch in self.base_dataloader:
             batch_buffer.append(batch)
             if len(batch_buffer) >= self.num_steps:
@@ -458,7 +457,6 @@ class PolicyTrainerBase(Trainer):
 
     @cuda_gc
     def generate_batch_extras(self, model, input_ids):
-        import pdb;pdb.set_trace()
         # PR TODO: generation_batch_size
         queries = input_ids.to(self.accelerator.device)
         context_length = queries.shape[1]
@@ -490,8 +488,9 @@ class PolicyTrainerBase(Trainer):
         return response_logits, response_logprobs
 
     def get_train_dataloader(self):
-        dataloader = super().get_train_dataloader()
         import pdb;pdb.set_trace()
+        dataloader = super().get_train_dataloader()
+
         # PR TODO: generation_batch_size
         def mutate_fn(batches):
             for batch in tqdm(batches, desc="generating batch extras"):
