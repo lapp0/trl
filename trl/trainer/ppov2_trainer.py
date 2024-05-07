@@ -75,6 +75,13 @@ def masked_whiten(values, mask, shift_mean=True):
     return whitened
 
 
+@dataclass
+class PolicyAndValueOutput:
+    logits: torch.Tensor
+    hidden_states: torch.Tensor
+    vpred: torch.Tensor
+
+
 # taken from https://github.com/OpenLMLab/MOSS-RLHF/blob/40b91eb2f2b71b16919addede0341d2bef70825d/ppo/ppo_trainer.py#L29
 # we did this we can do a single `model = accelerator.prepare(model)`
 class PolicyAndValueWrapper(nn.Module):
@@ -88,11 +95,13 @@ class PolicyAndValueWrapper(nn.Module):
     def forward(self, **kwargs):
         hidden_states = self.critic_backbone(**kwargs).hidden_states
         vpred = self.value_model.score(hidden_states[-1])
-
         output = self.policy(**kwargs)
-        output.vpred = vpred
-        print(output.keys())
-        return output
+
+        return PolicyAndValueOutput(
+            logits=output.logits,
+            hidden_states=output.hidden_states,
+            vpred=vpred,
+        )
 
     def generate(self, *args, **kwargs):
         return self.policy.generate(*args, **kwargs)
