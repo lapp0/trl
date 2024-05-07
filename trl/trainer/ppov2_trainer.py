@@ -256,7 +256,6 @@ class PPOTrainer(PolicyTrainerBase):
 
         # calculate gradients and loss
         output = self.forward(self.model, query_responses)
-        import pdb;pdb.set_trace()
         logits = output.logits[:, context_length - 1: -1]
         logits /= self.args.temperature + 1e-7
         new_all_logprobs = F.log_softmax(logits, dim=-1)
