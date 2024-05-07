@@ -193,6 +193,7 @@ class PPOTrainer(PolicyTrainerBase):
                 context_length
             )
             values = full_values[:, context_length - 1: -1].squeeze(-1)
+            import pdb;pdb.set_trace()
             _, scores, _ = self.get_reward(
                 self.reward_model,
                 postprocessed_query_responses,
