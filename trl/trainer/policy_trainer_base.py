@@ -163,6 +163,8 @@ def prepare_model_and_ref_model(
         if args.bf16 and getattr(model, "is_loaded_in_4bit", False):
             peft_module_casting_to_bf16(model)
 
+    # PR TODO: Ensure I can remove the commented section and it only applies to older versions of transformers
+    """
     # For models that use gradient_checkpointing, we need to attach a hook that enables input
     # to explicitly have `requires_grad=True`, otherwise training will either silently
     # fail or completely fail.
@@ -176,6 +178,7 @@ def prepare_model_and_ref_model(
                 output.requires_grad_(True)
 
             model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+    """
 
     return model, ref_model
 
