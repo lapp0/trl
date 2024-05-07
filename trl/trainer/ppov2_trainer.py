@@ -2,6 +2,7 @@ from accelerate.utils import gather_object
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Union, Any
+import inspect
 
 import pandas as pd
 import torch
@@ -84,6 +85,8 @@ class PolicyAndValueWrapper(nn.Module):
         self.value_model = value_model
         self.critic_backbone = getattr(value_model, value_model.base_model_prefix)
 
+        self._update_forward_signature()
+
     def forward(self, **kwargs):
         hidden_states = self.critic_backbone(**kwargs).hidden_states
         vpred = self.value_model.score(hidden_states[-1])
@@ -112,6 +115,12 @@ class PolicyAndValueWrapper(nn.Module):
     def gradient_checkpointing_enable(self, *args, **kwargs):
         self.policy.gradient_checkpointing_enable(*args, **kwargs)
         self.value_model.gradient_checkpointing_enable(*args, **kwargs)
+
+    def _update_forward_signature(self):
+        # This updates the signature of the forward method to match that of self.policy.__call__
+        forward_method = self.forward
+        policy_call_signature = inspect.signature(self.policy.__call__)
+        forward_method.__signature__ = policy_call_signature
 
 
 class PPOTrainer(PolicyTrainerBase):
