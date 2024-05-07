@@ -80,11 +80,16 @@ class PolicyAndValueWrapper(nn.Module):
         self.critic_backbone = getattr(value_model, value_model.base_model_prefix)
 
     def forward(self, **kwargs):
-        output = self.critic_backbone(
-            **kwargs,
-        )
-        logits = self.value_model.score(output.hidden_states[-1])
-        return self.policy(**kwargs), logits
+        hidden_states = self.critic_backbone(**kwargs).hidden_states
+        vpred = self.value_model.score(hidden_states[-1])
+
+        output = self.policy(**kwargs)
+        output.vpred = vpred
+
+        return output
+
+    def generate(self, *args, **kwargs):
+        return self.policy.generate(*args, **kwargs)
 
 
 class PPOTrainer(PolicyTrainerBase):
@@ -207,7 +212,7 @@ class PPOTrainer(PolicyTrainerBase):
             advantages = masked_whiten(advantages, ~padding_mask)
 
         # calculate gradients and loss
-        output, vpred_temp = self.forward(self.model, query_responses)
+        output = self.forward(self.model, query_responses)
         logits = output.logits[:, context_length - 1: -1]
         logits /= self.args.temperature + 1e-7
         new_all_logprobs = F.log_softmax(logits, dim=-1)
@@ -215,7 +220,7 @@ class PPOTrainer(PolicyTrainerBase):
         new_logprobs = torch.masked_fill(
             new_logprobs, padding_mask, INVALID_LOGPROB
         )
-        vpred = vpred_temp[:, context_length - 1: -1].squeeze(-1)
+        vpred = output.vpred[:, context_length - 1: -1].squeeze(-1)
         vpred = torch.masked_fill(vpred, padding_mask_p1, 0)
         vpredclipped = torch.clamp(
             vpred,
