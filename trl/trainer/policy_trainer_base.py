@@ -544,17 +544,16 @@ class PolicyTrainerBase(Trainer):
     @cuda_gc
     def get_reward(self, reward_model, query_responses, context_length):
         attention_mask = query_responses != self.tokenizer.pad_token_id
-
         input_ids = torch.masked_fill(query_responses, ~attention_mask, 0)
 
-        import pdb;pdb.set_trace()
-        output = reward_model(
+        lm_backbone = getattr(reward_model, reward_model.base_model_prefix)
+        output = lm_backbone(
             input_ids=input_ids,
             attention_mask=attention_mask,
             return_dict=True,
             output_hidden_states=True,
         )
-        reward_logits = reward_model.score(output.hidden_states[-1])
+        reward_logits = lm_backbone.score(output.hidden_states[-1])
         sequence_lengths = (
             self.first_true_indices(
                 query_responses[:, context_length:] == self.tokenizer.pad_token_id
