@@ -113,6 +113,11 @@ class PolicyAndValueWrapper(nn.Module):
         self.policy.gradient_checkpointing_enable(*args, **kwargs)
         self.value_model.gradient_checkpointing_enable(*args, **kwargs)
 
+    def disable_adapter(self):
+        return (
+            self.policy.disable_adapter(),
+            self.value_model.disable_adapter()
+        )
 
 class PPOTrainer(PolicyTrainerBase):
     _tag_names = ["trl", "ppo"]
