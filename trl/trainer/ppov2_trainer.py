@@ -141,18 +141,18 @@ class PPOTrainer(PolicyTrainerBase):
         """Hacky fix, should be improved at some point"""
         self._signature_columns = ['input_ids', 'lengths']
 
-    def push_to_hub(self, **kwargs):
+    def push_to_hub(self, *args, **kwargs):
         """Modified from `Trainer.save_model` to only save the policy a1nd not the value network."""
         backup_model = self.model
         self.model = self.accelerator.unwrap_model(self.model).policy  # save only the policy
-        super().push_to_hub(**kwargs)
+        super().push_to_hub(*args, **kwargs)
         self.model = backup_model
 
-    def save_model(self, **kwargs):
+    def save_model(self, *args, **kwargs):
         """Modified from `Trainer.save_model` to only save the policy and not the value network."""
         backup_model = self.model
         self.model = self.accelerator.unwrap_model(self.model).policy  # save only the policy
-        super().save_model(**kwargs)
+        super().save_model(*args, **kwargs)
         self.model = backup_model
 
     def get_batch_loss_metrics(
