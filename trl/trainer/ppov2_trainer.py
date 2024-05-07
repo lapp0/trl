@@ -117,19 +117,16 @@ class PolicyAndValueWrapper(nn.Module):
 class PPOTrainer(PolicyTrainerBase):
     _tag_names = ["trl", "ppo"]
 
-    def generate_batch_extras(self, model, input_ids):
-        input_ids = input_ids.repeat(1, 1)
-        return super().generate_batch_extras(model, input_ids)
-
+    """
     def push_to_hub(self, **kwargs):
-        """Modified from `Trainer.save_model` to only save the policy a1nd not the value network."""
+        ""Modified from `Trainer.save_model` to only save the policy a1nd not the value network.""
         self.backup_model = self.model
         self.model = self.accelerator.unwrap_model(self.model).policy  # save only the policy
         super().push_to_hub(**kwargs)
         self.model = self.backup_model
 
     def save_model(self, output_dir: Optional[str] = None, _internal_call: bool = False):
-        """Modified from `Trainer.save_model` to only save the policy and not the value network."""
+        ""Modified from `Trainer.save_model` to only save the policy and not the value network.""
         # PR TODO: can we simplify this?
         # PR TODO:
         if not _internal_call:  # `push_to_hub` already swaps out the self.model with policy
@@ -145,6 +142,7 @@ class PPOTrainer(PolicyTrainerBase):
             self._save(output_dir, state_dict=policy_state_dict)
         if not _internal_call:
             self.model = self.backup_model
+    """
 
     def get_batch_loss_metrics(
         self,
