@@ -11,6 +11,10 @@ from transformers import PreTrainedModel, GenerationConfig
 from trl.models.utils import unwrap_model_for_generation
 
 from . import PolicyTrainerBase, PolicyTrainerArguments
+from ..import_utils import is_peft_available
+
+if is_peft_available():
+    from peft import PeftModel
 
 
 INVALID_LOGPROB = 1.0
@@ -96,7 +100,16 @@ class PolicyAndValueWrapper(nn.Module):
 
     @property
     def is_peft_model(self):
-        return self.policy.is_peft_model
+        if not is_peft_available():
+            return False
+
+        policy_peft = (getattr(self.policy, "is_peft_model", False) or
+                       isinstance(self.policy, PeftModel))
+        value_model_peft = (getattr(self.value_model, "is_peft_model", False) or
+                            isinstance(self.value_model, PeftModel))
+
+        assert policy_peft == value_model_peft
+        return policy_peft
 
 
 class PPOTrainer(PolicyTrainerBase):
