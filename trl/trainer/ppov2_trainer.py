@@ -76,6 +76,7 @@ class PolicyAndValueWrapper(nn.Module):
     def __init__(self, policy, value_model) -> None:
         super().__init__()
         self.policy = policy
+        self.generation_config = self.policy.generation_config
         self.value_model = value_model
         self.critic_backbone = getattr(value_model, value_model.base_model_prefix)
 
@@ -93,6 +94,7 @@ class PolicyAndValueWrapper(nn.Module):
 
 
 class PPOTrainer(PolicyTrainerBase):
+    _tag_names = ["trl", "ppo"]
 
     def push_to_hub(self, **kwargs):
         """Modified from `Trainer.save_model` to only save the policy a1nd not the value network."""
