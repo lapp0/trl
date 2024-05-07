@@ -149,7 +149,6 @@ def prepare_model_and_ref_model(
             model = prepare_model_for_kbit_training(model, **prepare_model_kwargs)
 
         # PR TODO: Ensure I can remove this, as it only applies to older versions of transformers
-        """
         elif getattr(args, "gradient_checkpointing", False):
             # For backward compatibility with older versions of transformers
             if hasattr(model, "enable_input_require_grads"):
@@ -160,14 +159,12 @@ def prepare_model_and_ref_model(
                     output.requires_grad_(True)
 
                 model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
-        """
         # get peft model with the given config
         model = get_peft_model(model, peft_config)
         if args.bf16 and getattr(model, "is_loaded_in_4bit", False):
             peft_module_casting_to_bf16(model)
 
     # PR TODO: Ensure I can remove this, as it only applies to older versions of transformers
-    """
     # For models that use gradient_checkpointing, we need to attach a hook that enables input
     # to explicitly have `requires_grad=True`, otherwise training will either silently
     # fail or completely fail.
@@ -181,7 +178,6 @@ def prepare_model_and_ref_model(
                 output.requires_grad_(True)
 
             model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
-    """
 
     return model, ref_model
 

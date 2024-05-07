@@ -129,6 +129,10 @@ class PolicyAndValueWrapper(nn.Module):
             with self.value_model.disable_adapter():
                 yield
 
+    def enable_input_require_grads(self):
+        self.policy.enable_input_require_grads()
+        self.value_model.enable_input_require_grads()
+
 
 class PPOTrainer(PolicyTrainerBase):
     _tag_names = ["trl", "ppo"]
