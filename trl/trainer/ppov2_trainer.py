@@ -125,11 +125,8 @@ class PPOTrainer(PolicyTrainerBase):
     _tag_names = ["trl", "ppo"]
 
     def _set_signature_columns_if_needed(self):
-        _model = self.model
-        self.model = self.model.policy
-        super()._set_signature_columns_if_needed()
-        self.model = _model
-        print("self._signature_columns", self._signature_columns)
+        """Hacky fix, should be improved at some point"""
+        self._signature_columns = ['input_ids', 'lengths']
 
     def push_to_hub(self, **kwargs):
         """Modified from `Trainer.save_model` to only save the policy a1nd not the value network."""
