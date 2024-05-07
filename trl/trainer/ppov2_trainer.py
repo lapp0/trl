@@ -120,6 +120,7 @@ class PolicyAndValueWrapper(nn.Module):
             with self.value_model.disable_adapter():
                 yield
 
+
 class PPOTrainer(PolicyTrainerBase):
     _tag_names = ["trl", "ppo"]
 
@@ -128,6 +129,7 @@ class PPOTrainer(PolicyTrainerBase):
         self.model = self.model.policy
         super()._set_signature_columns_if_needed()
         self.model = _model
+        print("self._signature_columns", self._signature_columns)
 
     def push_to_hub(self, **kwargs):
         """Modified from `Trainer.save_model` to only save the policy a1nd not the value network."""
