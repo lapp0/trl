@@ -117,6 +117,10 @@ class PolicyAndValueWrapper(nn.Module):
 class PPOTrainer(PolicyTrainerBase):
     _tag_names = ["trl", "ppo"]
 
+    def generate_batch_extras(self, model, input_ids):
+        input_ids = input_ids.repeat(1, 1)
+        return super().generate_batch_extras(model, input_ids)
+
     def push_to_hub(self, **kwargs):
         """Modified from `Trainer.save_model` to only save the policy a1nd not the value network."""
         self.backup_model = self.model
