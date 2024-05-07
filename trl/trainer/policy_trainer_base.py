@@ -266,6 +266,7 @@ class DynamicDataLoader:
 
     def __iter__(self):
         batch_buffer = []
+        import pdb;pdb.set_trace()
         for batch in self.base_dataloader:
             batch_buffer.append(batch)
             if len(batch_buffer) >= self.num_steps:
