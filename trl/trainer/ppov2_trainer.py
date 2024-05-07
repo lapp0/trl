@@ -80,6 +80,8 @@ class PolicyAndValueWrapper(nn.Module):
         self.value_model = value_model
         self.critic_backbone = getattr(value_model, value_model.base_model_prefix)
 
+        assert self.policy.is_peft_model == self.value_model.is_peft_model
+
     def forward(self, **kwargs):
         hidden_states = self.critic_backbone(**kwargs).hidden_states
         vpred = self.value_model.score(hidden_states[-1])
@@ -91,6 +93,10 @@ class PolicyAndValueWrapper(nn.Module):
 
     def generate(self, *args, **kwargs):
         return self.policy.generate(*args, **kwargs)
+
+    @property
+    def is_peft_model(self):
+        return self.policy.is_peft_model
 
 
 class PPOTrainer(PolicyTrainerBase):
