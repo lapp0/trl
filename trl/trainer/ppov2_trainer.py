@@ -1,4 +1,5 @@
 from accelerate.utils import gather_object
+from contextlib import contextmanager
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Union, Any
@@ -113,11 +114,11 @@ class PolicyAndValueWrapper(nn.Module):
         self.policy.gradient_checkpointing_enable(*args, **kwargs)
         self.value_model.gradient_checkpointing_enable(*args, **kwargs)
 
+    @contextmanager
     def disable_adapter(self):
-        return (
-            self.policy.disable_adapter(),
-            self.value_model.disable_adapter()
-        )
+        with self.policy.disable_adapter():
+            with self.value_model.disable_adapter():
+                yield
 
 class PPOTrainer(PolicyTrainerBase):
     _tag_names = ["trl", "ppo"]
