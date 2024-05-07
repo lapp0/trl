@@ -187,7 +187,6 @@ class PPOTrainer(PolicyTrainerBase):
                 postprocessed_responses == self.tokenizer.pad_token_id
             ) - 1
 
-            import pdb;pdb.set_trace()
             full_values, _, _ = self.get_reward(
                 self.accelerator.unwrap_model(self.model).value_model,
                 query_responses,

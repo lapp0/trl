@@ -547,6 +547,7 @@ class PolicyTrainerBase(Trainer):
 
         input_ids = torch.masked_fill(query_responses, ~attention_mask, 0)
 
+        import pdb;pdb.set_trace()
         output = reward_model(
             input_ids=input_ids,
             attention_mask=attention_mask,
