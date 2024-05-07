@@ -109,6 +109,10 @@ class PolicyAndValueWrapper(nn.Module):
         assert policy_peft == value_model_peft
         return policy_peft
 
+    def gradient_checkpointing_enable(self):
+        self.policy.gradient_checkpointing_enable()
+        self.value_model.gradient_checkpointing_enable()
+
 
 class PPOTrainer(PolicyTrainerBase):
     _tag_names = ["trl", "ppo"]
