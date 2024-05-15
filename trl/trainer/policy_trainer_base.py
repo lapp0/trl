@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from tqdm import tqdm
 from typing import Dict, Literal, Optional, Tuple, Union, Callable, Any
+from itertools import islice
 import gc
 import inspect
 import torch
@@ -54,6 +55,8 @@ class PolicyTrainerArguments(TrainingArguments):
 
     update_generation_steps: Optional[int] = 64
     """Number of steps between updating the generation model. If None, once per epoch"""
+
+    generation_batch_group_size: int = 1
 
 
 class fast_eval_mode:
@@ -486,13 +489,23 @@ class PolicyTrainerBase(Trainer):
     def get_train_dataloader(self):
         dataloader = super().get_train_dataloader()
 
+        def group_batches(iterator, group_size):
+            while True:
+                group = list(islice(iterator, group_size))
+                if not group:
+                    break
+                yield group
+
         # PR TODO: generation_batch_size
         def mutate_fn(batches):
-            for batch in tqdm(batches, desc="generating batch extras"):
-                batch_extras = self.generate_batch_extras(
-                    self.model, batch["input_ids"]
+            batch_groups = group_batches(iter(batches), self.args.generation_batch_group_size)
+            for batch_group in tqdm(batch_groups, desc="generating batch extras"):
+                batch_extras_group = self.generate_batch_extras(
+                    self.model,
+                    [batch["input_ids"] for batch in batch_group]
                 )
-                batch.update(batch_extras)
+                for batch, batch_extras in zip(batch_group, batch_extras_group):
+                    batch.update(batch_extras)
             return batches
         return DynamicDataLoader(
             dataloader,

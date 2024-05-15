@@ -38,7 +38,6 @@ class PPOConfig(PolicyTrainerArguments):
     kl_coef: float = 0.05
     """the KL coefficient"""
 
-
 def masked_mean(values, mask, axis=None):
     """Compute mean of tensor with a masked values."""
     if axis is not None:
