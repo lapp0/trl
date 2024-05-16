@@ -489,24 +489,25 @@ class PolicyTrainerBase(Trainer):
     def get_train_dataloader(self):
         dataloader = super().get_train_dataloader()
 
-        def group_batches(iterator, group_size):
-            while True:
-                group = list(islice(iterator, group_size))
-                if not group:
-                    break
-                yield group
+        def group_batches(batches, group_size):
+            for i in range(0, len(batches), group_size):
+                yield batches[i:i + group_size]
 
-        # PR TODO: generation_batch_size
         def mutate_fn(batches):
-            batch_groups = group_batches(iter(batches), self.args.generation_batch_group_size)
+            batch_groups = group_batches(batches, self.args.generation_batch_group_size)
             for batch_group in tqdm(batch_groups, desc="generating batch extras"):
-                batch_extras_group = self.generate_batch_extras(
-                    self.model,
-                    [batch["input_ids"] for batch in batch_group]
-                )
-                for batch, batch_extras in zip(batch_group, batch_extras_group):
-                    batch.update(batch_extras)
+                # flatten groups
+                batch_sizes = [b["input_ids"].size(0) for b in batch_group]
+                flat_group_input_ids = torch.cat([b["input_ids"] for b in batch_group], dim=0)
+                # generate extras for group
+                flat_group_extras = self.generate_batch_extras(self.model, flat_group_input_ids)
+                # unflatten and update individual batches
+                for key in flat_group_extras:
+                    split_tensors = torch.split(flat_group_extras[key], batch_sizes)
+                    for b, split_tensor in zip(batch_group, split_tensors):
+                        b[key] = split_tensor
             return batches
+
         return DynamicDataLoader(
             dataloader,
             mutate_fn,
