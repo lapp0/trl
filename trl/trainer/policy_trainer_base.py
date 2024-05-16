@@ -507,7 +507,6 @@ class PolicyTrainerBase(Trainer):
                 padded_batch = self.tokenizer.pad(
                     {"input_ids": flat_group_input_ids},
                     padding=True,
-                    truncation=True,
                     return_tensors="pt"
                 )
 
