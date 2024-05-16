@@ -498,7 +498,7 @@ class PolicyTrainerBase(Trainer):
             for batch_group in tqdm(batch_groups, desc="generating batch extras"):
                 # flatten groups
                 batch_sizes = [b["input_ids"].size(0) for b in batch_group]
-                flat_group_input_ids = torch.cat([b["input_ids"] for b in batch_group], dim=0)
+                flat_group_input_ids = [row["input_ids"] for batch in batch_group for row in batch]
                 # pad
                 flat_group_input_ids = self.tokenizer.pad(
                     {"input_ids": flat_group_input_ids},
