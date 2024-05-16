@@ -496,19 +496,22 @@ class PolicyTrainerBase(Trainer):
         def mutate_fn(batches):
             batch_groups = group_batches(batches, self.args.generation_batch_group_size)
             for batch_group in tqdm(batch_groups, desc="generating batch extras"):
-                # Extract and pad input_ids using the tokenizer
+                # Extract input_ids from each batch and flatten them
                 batch_input_ids = [b["input_ids"] for b in batch_group]
                 batch_sizes = [len(ids) for ids in batch_input_ids]
 
-                # Pad the input_ids to ensure they are of the same length
-                padded_input_ids = self.tokenizer.pad(
-                    {"input_ids": batch_input_ids},
-                    padding=True,
-                    return_tensors="pt"
-                )["input_ids"]
+                # Flatten input_ids into a single list
+                flat_group_input_ids = [item for sublist in batch_input_ids for item in sublist]
 
-                # Flatten the padded input_ids
-                flat_group_input_ids = padded_input_ids.view(-1)
+                # Pad the flattened input_ids using the tokenizer
+                padded_batch = self.tokenizer.pad(
+                    {"input_ids": flat_group_input_ids},
+                    padding=True,
+                    truncation=True,
+                    return_tensors="pt"
+                )
+
+                flat_group_input_ids = padded_batch["input_ids"]
 
                 # Generate batch extras for the flattened input_ids
                 flat_group_extras = self.generate_batch_extras(self.model, flat_group_input_ids)
