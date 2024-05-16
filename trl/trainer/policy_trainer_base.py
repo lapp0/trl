@@ -496,28 +496,30 @@ class PolicyTrainerBase(Trainer):
         def mutate_fn(batches):
             batch_groups = group_batches(batches, self.args.generation_batch_group_size)
             for batch_group in tqdm(batch_groups, desc="generating batch extras"):
-                # Flatten the input_ids from each batch in the group
+                # Extract and pad input_ids using the tokenizer
                 batch_input_ids = [b["input_ids"] for b in batch_group]
                 batch_sizes = [len(ids) for ids in batch_input_ids]
-                concatenated_input_ids = torch.cat(batch_input_ids, dim=0)
 
-                # Pad the concatenated input_ids using the tokenizer
-                padded_batch = self.tokenizer.pad(
-                    {"input_ids": concatenated_input_ids.unsqueeze(0)},  # Add batch dimension
+                # Pad the input_ids to ensure they are of the same length
+                padded_input_ids = self.tokenizer.pad(
+                    {"input_ids": batch_input_ids},
                     padding=True,
-                    truncation=True,
                     return_tensors="pt"
-                )
-                flat_group_input_ids = padded_batch["input_ids"].view(-1)
+                )["input_ids"]
+
+                # Flatten the padded input_ids
+                flat_group_input_ids = padded_input_ids.view(-1)
 
                 # Generate batch extras for the flattened input_ids
                 flat_group_extras = self.generate_batch_extras(self.model, flat_group_input_ids)
 
                 # Unflatten and update individual batches
-                for key in flat_group_extras:
-                    split_tensors = torch.split(flat_group_extras[key], batch_sizes)
-                    for b, split_tensor in zip(batch_group, split_tensors):
-                        b[key] = split_tensor
+                start_idx = 0
+                for b, size in zip(batch_group, batch_sizes):
+                    end_idx = start_idx + size
+                    for key in flat_group_extras:
+                        b[key] = flat_group_extras[key][start_idx:end_idx]
+                    start_idx = end_idx
 
             return batches
 
