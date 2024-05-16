@@ -505,6 +505,8 @@ class PolicyTrainerBase(Trainer):
                     padding=True,
                     return_tensors="pt"
                 )["input_ids"]
+                print(batch_groups.shape)
+                print(flat_group_input_ids.shape)
 
                 # generate extras for group
                 flat_group_extras = self.generate_batch_extras(self.model, flat_group_input_ids)
