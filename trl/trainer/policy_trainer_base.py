@@ -496,16 +496,28 @@ class PolicyTrainerBase(Trainer):
         def mutate_fn(batches):
             batch_groups = group_batches(batches, self.args.generation_batch_group_size)
             for batch_group in tqdm(batch_groups, desc="generating batch extras"):
-                # flatten groups
-                batch_sizes = [b["input_ids"].size(0) for b in batch_group]
-                flat_group_input_ids = torch.cat([b["input_ids"] for b in batch_group], dim=0)
-                # generate extras for group
+
+                # Extract and pad the input_ids using the tokenizer
+                batch_input_ids = [b["input_ids"] for b in batch_group]
+                batch_sizes = [len(ids) for ids in batch_input_ids]
+                padded_batch = self.tokenizer.pad(
+                    {"input_ids": batch_input_ids},
+                    padding=True,
+                    return_tensors="pt"
+                )
+
+                # Flatten the padded input_ids
+                flat_group_input_ids = padded_batch["input_ids"].view(-1)
+
+                # generate extras for entire group
                 flat_group_extras = self.generate_batch_extras(self.model, flat_group_input_ids)
+
                 # unflatten and update individual batches
                 for key in flat_group_extras:
                     split_tensors = torch.split(flat_group_extras[key], batch_sizes)
                     for b, split_tensor in zip(batch_group, split_tensors):
                         b[key] = split_tensor
+
             return batches
 
         return DynamicDataLoader(
