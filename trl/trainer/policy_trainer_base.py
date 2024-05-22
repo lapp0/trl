@@ -341,6 +341,7 @@ class PolicyTrainerBase(Trainer):
     def __init__(
             self,
             model: Optional[PreTrainedModelWrapper],
+            generation_model,
             ref_model: Optional[Union[PreTrainedModel, nn.Module, str]] = None,
             args: Optional[TrainingArguments] = None,
             train_dataset: Optional[Dataset] = None,
@@ -355,6 +356,8 @@ class PolicyTrainerBase(Trainer):
             force_use_ref_model: bool = False,
             **kwargs
     ) -> None:
+
+        self.generation_model = generation_model
 
         model, ref_model = prepare_model_and_ref_model(
             model=model,
