@@ -77,14 +77,10 @@ class fast_eval_mode:
     def __enter__(self):
         self.was_training = self.model.training
         if self.was_training:
-            if is_unsloth_available():
-                FastLanguageModel.for_inference(self.model)
             self.model.eval()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.was_training:
-            if is_unsloth_available():
-                FastLanguageModel.for_training(self.model)
             self.model.train()
 
 
