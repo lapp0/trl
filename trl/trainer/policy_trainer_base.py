@@ -28,7 +28,7 @@ from transformers import (
 from ..core import logprobs_from_logits
 from ..models import SUPPORTED_ARCHITECTURES, create_reference_model, PreTrainedModelWrapper
 from .utils import disable_dropout_in_model, peft_module_casting_to_bf16
-from ..import_utils import is_peft_available
+from ..import_utils import is_peft_available, is_unsloth_available
 
 
 if is_peft_available():
@@ -36,6 +36,9 @@ if is_peft_available():
 
 if is_deepspeed_available():
     import deepspeed
+
+if is_unsloth_available():
+    from unsloth import FastLanguageModel
 
 
 @dataclass
@@ -74,10 +77,14 @@ class fast_eval_mode:
     def __enter__(self):
         self.was_training = self.model.training
         if self.was_training:
+            if is_unsloth_available():
+                FastLanguageModel.for_inference(self.model)
             self.model.eval()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.was_training:
+            if is_unsloth_available():
+                FastLanguageModel.for_training(self.model)
             self.model.train()
 
 
@@ -341,7 +348,6 @@ class PolicyTrainerBase(Trainer):
     def __init__(
             self,
             model: Optional[PreTrainedModelWrapper],
-            generation_model,
             ref_model: Optional[Union[PreTrainedModel, nn.Module, str]] = None,
             args: Optional[TrainingArguments] = None,
             train_dataset: Optional[Dataset] = None,
@@ -356,9 +362,6 @@ class PolicyTrainerBase(Trainer):
             force_use_ref_model: bool = False,
             **kwargs
     ) -> None:
-
-        self.generation_model = generation_model
-
         model, ref_model = prepare_model_and_ref_model(
             model=model,
             ref_model=ref_model,
