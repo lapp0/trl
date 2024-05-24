@@ -543,7 +543,8 @@ class PolicyTrainerBase(Trainer):
 
     def generate(self, model, queries, generation_config, requires_grad=True):
         """generate in a way that does not affect padding tokens"""
-        with fast_eval_mode(model):
+        # PR TODO: reincorporate fast eval mode
+        if True: #  with fast_eval_mode(model):
             context_length = queries.shape[1]
             attention_mask = queries != self.tokenizer.pad_token_id
             input_ids = torch.masked_fill(queries, ~attention_mask, 0)

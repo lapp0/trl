@@ -1,5 +1,5 @@
 from accelerate.utils import gather_object
-from contextlib import contextmanager, ContextDecorator
+from contextlib import contextmanager
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Union, Any
@@ -19,22 +19,6 @@ if is_peft_available():
 
 
 INVALID_LOGPROB = 1.0
-
-
-# PR TODO: Remove when integrated into unsloth
-class disable_caching(ContextDecorator):
-    def __init__(self, model):
-        self.model = model
-        self.prev_value: Any = "UNSET"  # config values may be T/F/None
-
-    def __enter__(self):
-        self.prev_value = self.model.config.use_cache
-        self.model.config.use_cache = False
-
-    def __exit__(self, *exc):
-        if self.prev_value != "UNSET":
-            self.model.config.use_cache = self.prev_value
-        self.prev_value = "UNSET"
 
 
 @dataclass
@@ -108,16 +92,15 @@ class PolicyAndValueWrapper(nn.Module):
         self.critic_backbone = getattr(value_model, value_model.base_model_prefix)
 
     def forward(self, **kwargs):
-        with disable_caching(self.policy), disable_caching(self.value_model):
-            hidden_states = self.critic_backbone(**kwargs).hidden_states
-            vpred = self.value_model.score(hidden_states[-1])
-            output = self.policy(**kwargs)
+        hidden_states = self.critic_backbone(**kwargs).hidden_states
+        vpred = self.value_model.score(hidden_states[-1])
+        output = self.policy(**kwargs)
 
-            return PolicyAndValueOutput(
-                logits=output.logits,
-                hidden_states=output.hidden_states,
-                vpred=vpred,
-            )
+        return PolicyAndValueOutput(
+            logits=output.logits,
+            hidden_states=output.hidden_states,
+            vpred=vpred,
+        )
 
     def generate(self, *args, **kwargs):
         return self.policy.generate(*args, **kwargs)
@@ -273,11 +256,6 @@ class PPOTrainer(PolicyTrainerBase):
 
         # calculate gradients and loss
         output = self.forward(self.model, query_responses)
-        try:
-            output.logits.mean().backward(retain_graph=True)
-        except:
-            print("early failure")
-            import pdb;pdb.set_trace()
         logits = output.logits[:, context_length - 1: -1]
         logits /= self.args.temperature + 1e-7
         new_all_logprobs = F.log_softmax(logits, dim=-1)
@@ -296,15 +274,12 @@ class PPOTrainer(PolicyTrainerBase):
         vf_losses1 = torch.square(vpred - returns)
         vf_losses2 = torch.square(vpredclipped - returns)
         vf_loss_max = torch.max(vf_losses1, vf_losses2)
-        vf_loss = 0.5 * vf_loss_max[~padding_mask_p1].mean()
-        vf_clipfrac = (vf_losses2 > vf_losses1).float()[~padding_mask_p1].mean()
-
+        vf_loss = 0.5 * masked_mean(vf_loss_max, ~padding_mask_p1)
+        vf_clipfrac = masked_mean(
+            (vf_losses2 > vf_losses1).float(), ~padding_mask_p1
+        )
         logprobs_diff = new_logprobs - gen_logprobs
         ratio = torch.exp(logprobs_diff)
-
-        ratio = ratio[~padding_mask]
-        advantages = advantages[~padding_mask]
-
         pg_losses = -advantages * ratio
         pg_losses2 = -advantages * torch.clamp(
             ratio,
@@ -312,16 +287,11 @@ class PPOTrainer(PolicyTrainerBase):
             1.0 + self.args.cliprange
         )
         pg_loss_max = torch.max(pg_losses, pg_losses2)
-        pg_loss = pg_loss_max.mean()
-        #pg_clipfrac = masked_mean(
-        #    (pg_losses2 > pg_losses).float(), ~padding_mask
-        #)
+        pg_loss = masked_mean(pg_loss_max, ~padding_mask)
+        pg_clipfrac = masked_mean(
+            (pg_losses2 > pg_losses).float(), ~padding_mask
+        )
         loss = pg_loss + self.args.vf_coef * vf_loss
-
-        try:
-            loss.backward(retain_graph=True)
-        except:
-            import pdb;pdb.set_trace()
 
         # calculate metrics
         with torch.no_grad():
@@ -334,7 +304,7 @@ class PPOTrainer(PolicyTrainerBase):
                 "objective/rlhf_reward": mean_non_score_reward + scores.mean(),
                 "objective/scores": self.accelerator.gather(scores.mean()).mean().item(),
                 "policy/approxkl_avg": 0.5 * (logprobs_diff**2).mean(),
-                #"policy/clipfrac_avg": pg_clipfrac.mean(),
+                "policy/clipfrac_avg": pg_clipfrac.mean(),
                 "loss/policy_avg": self.accelerator.gather(pg_loss).mean().item(),
                 "loss/value_avg": vf_loss.mean(),
                 "val/clipfrac_avg": vf_clipfrac.mean(),
