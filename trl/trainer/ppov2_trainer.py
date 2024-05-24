@@ -290,7 +290,7 @@ class PPOTrainer(PolicyTrainerBase):
             1.0 + self.args.cliprange
         )
         pg_loss_max = torch.max(pg_losses, pg_losses2)
-        pg_loss = masked_mean(pg_loss_max, ~padding_mask)
+        pg_loss = pg_loss_max.mean()
         #pg_clipfrac = masked_mean(
         #    (pg_losses2 > pg_losses).float(), ~padding_mask
         #)
