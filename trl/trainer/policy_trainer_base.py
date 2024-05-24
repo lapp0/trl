@@ -62,7 +62,7 @@ class PolicyTrainerArguments(TrainingArguments):
     generation_batch_group_size: int = 1
 
 
-class fast_eval_mode:
+class fast_eval_mode(ContextDecorator):
     """
     Convert to model.eval(), then revert to previous state
 
@@ -82,20 +82,6 @@ class fast_eval_mode:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.was_training:
             self.model.train()
-
-class disable_caching(ContextDecorator):
-    def __init__(self, model):
-        self.model = model
-        self.prev_value: Any = "UNSET"  # config values may be T/F/None
-
-    def __enter__(self):
-        self.prev_value = self.model.config.use_cache
-        self.model.config.use_cache = False
-
-    def __exit__(self, *exc):
-        if self.prev_value != "UNSET":
-            self.model.config.use_cache = self.prev_value
-        self.prev_value = "UNSET"
 
 
 def prepare_model_and_ref_model(

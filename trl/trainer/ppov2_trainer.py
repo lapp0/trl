@@ -1,5 +1,5 @@
 from accelerate.utils import gather_object
-from contextlib import contextmanager
+from contextlib import contextmanager, ContextDecorator
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Union, Any
@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from transformers import PreTrainedModel, GenerationConfig
 from trl.models.utils import unwrap_model_for_generation
 
-from . import PolicyTrainerBase, PolicyTrainerArguments, disable_caching
+from . import PolicyTrainerBase, PolicyTrainerArguments
 from ..import_utils import is_peft_available
 
 if is_peft_available():
@@ -19,6 +19,22 @@ if is_peft_available():
 
 
 INVALID_LOGPROB = 1.0
+
+
+# PR TODO: Remove when integrated into unsloth
+class disable_caching(ContextDecorator):
+    def __init__(self, model):
+        self.model = model
+        self.prev_value: Any = "UNSET"  # config values may be T/F/None
+
+    def __enter__(self):
+        self.prev_value = self.model.config.use_cache
+        self.model.config.use_cache = False
+
+    def __exit__(self, *exc):
+        if self.prev_value != "UNSET":
+            self.model.config.use_cache = self.prev_value
+        self.prev_value = "UNSET"
 
 
 @dataclass
