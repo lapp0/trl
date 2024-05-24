@@ -565,8 +565,8 @@ class PolicyTrainerBase(Trainer):
         return model(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            #return_dict=True,
-            #output_hidden_states=True,
+            return_dict=True,
+            output_hidden_states=True,
             use_cache=False,
         )
 
