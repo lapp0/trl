@@ -1,6 +1,6 @@
 from accelerate.utils import is_deepspeed_available
 from collections import defaultdict
-from contextlib import nullcontext, contextmanager
+from contextlib import nullcontext, contextmanager, ContextDecorator
 from copy import deepcopy
 from dataclasses import dataclass
 from tqdm import tqdm
@@ -82,6 +82,20 @@ class fast_eval_mode:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.was_training:
             self.model.train()
+
+class disable_caching(ContextDecorator):
+    def __init__(self, model):
+        self.model = model
+        self.prev_value: Any = "UNSET"  # config values may be T/F/None
+
+    def __enter__(self):
+        self.prev_value = self.model.config.use_cache
+        self.model.config.use_cache = False
+
+    def __exit__(self, *exc):
+        if self.prev_value != "UNSET":
+            self.model.config.use_cache = self.prev_value
+        self.prev_value = "UNSET"
 
 
 def prepare_model_and_ref_model(
@@ -560,17 +574,18 @@ class PolicyTrainerBase(Trainer):
         return query_responses
 
     def forward(self, model, query_responses):
-        attention_mask = query_responses != self.tokenizer.pad_token_id
-        position_ids = attention_mask.cumsum(1) - attention_mask.long()
-        input_ids = torch.masked_fill(query_responses, ~attention_mask, 0)
-        return model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            position_ids=position_ids,
-            return_dict=True,
-            output_hidden_states=True,
-            use_cache=False,
-        )
+        with disable_caching(model):
+            attention_mask = query_responses != self.tokenizer.pad_token_id
+            position_ids = attention_mask.cumsum(1) - attention_mask.long()
+            input_ids = torch.masked_fill(query_responses, ~attention_mask, 0)
+            return model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                return_dict=True,
+                output_hidden_states=True,
+                use_cache=False,
+            )
 
     @cuda_gc
     def get_reward(self, reward_model, query_responses, context_length):
