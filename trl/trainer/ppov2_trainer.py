@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from transformers import PreTrainedModel, GenerationConfig
 from trl.models.utils import unwrap_model_for_generation
 
-from . import PolicyTrainerBase, PolicyTrainerArguments
+from . import PolicyTrainerBase, PolicyTrainerArguments, disable_caching
 from ..import_utils import is_peft_available
 
 if is_peft_available():
@@ -92,15 +92,16 @@ class PolicyAndValueWrapper(nn.Module):
         self.critic_backbone = getattr(value_model, value_model.base_model_prefix)
 
     def forward(self, **kwargs):
-        hidden_states = self.critic_backbone(**kwargs).hidden_states
-        vpred = self.value_model.score(hidden_states[-1])
-        output = self.policy(**kwargs)
+        with disable_caching(self.policy), disable_caching(self.value_model):
+            hidden_states = self.critic_backbone(**kwargs).hidden_states
+            vpred = self.value_model.score(hidden_states[-1])
+            output = self.policy(**kwargs)
 
-        return PolicyAndValueOutput(
-            logits=output.logits,
-            hidden_states=output.hidden_states,
-            vpred=vpred,
-        )
+            return PolicyAndValueOutput(
+                logits=output.logits,
+                hidden_states=output.hidden_states,
+                vpred=vpred,
+            )
 
     def generate(self, *args, **kwargs):
         return self.policy.generate(*args, **kwargs)
