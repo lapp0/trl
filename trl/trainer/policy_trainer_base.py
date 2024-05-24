@@ -561,12 +561,12 @@ class PolicyTrainerBase(Trainer):
 
     def forward(self, model, query_responses):
         attention_mask = query_responses != self.tokenizer.pad_token_id
-        input_ids = torch.masked_fill(query_responses, ~attention_mask, 0)
+        input_ids = query_responses  # torch.masked_fill(query_responses, ~attention_mask, 0)
         return model(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            return_dict=True,
-            output_hidden_states=True,
+            #return_dict=True,
+            #output_hidden_states=True,
             use_cache=False,
         )
 
