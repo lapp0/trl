@@ -296,7 +296,10 @@ class PPOTrainer(PolicyTrainerBase):
         #)
         loss = pg_loss + self.args.vf_coef * vf_loss
 
-        import pdb;pdb.set_trace()
+        try:
+            loss.backward(retain_graph=True)
+        except:
+            import pdb;pdb.set_trace()
 
         # calculate metrics
         with torch.no_grad():
@@ -356,7 +359,7 @@ class PPOTrainer(PolicyTrainerBase):
                 _, score, _ = self.get_reward(self.reward_model, postprocessed_query_response, context_length)
                 table["score"].extend(self.accelerator.gather(score).float().cpu().numpy())
 
-            if sampling:
+p            if sampling:
                 break
         df = pd.DataFrame(table)
         # PR TODO: write df to pickle if not using wandb
