@@ -279,6 +279,7 @@ class PPOTrainer(PolicyTrainerBase):
             (vf_losses2 > vf_losses1).float(), ~padding_mask_p1
         )
         logprobs_diff = new_logprobs - gen_logprobs
+        logprobs_diff = logprobs_diff[padding_mask]
         ratio = torch.exp(logprobs_diff)
         pg_losses = -advantages * ratio
         pg_losses2 = -advantages * torch.clamp(
@@ -292,8 +293,6 @@ class PPOTrainer(PolicyTrainerBase):
             (pg_losses2 > pg_losses).float(), ~padding_mask
         )
         loss = pg_loss + self.args.vf_coef * vf_loss
-
-        import pdb;pdb.set_trace()
 
         # calculate metrics
         with torch.no_grad():
