@@ -293,8 +293,6 @@ class PPOTrainer(PolicyTrainerBase):
         )
         loss = pg_loss + self.args.vf_coef * vf_loss
 
-        import pdb;pdb.set_trace()
-
         # calculate metrics
         with torch.no_grad():
             mean_non_score_reward = non_score_reward.sum(1).mean()
