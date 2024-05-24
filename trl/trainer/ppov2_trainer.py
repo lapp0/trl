@@ -359,7 +359,7 @@ class PPOTrainer(PolicyTrainerBase):
                 _, score, _ = self.get_reward(self.reward_model, postprocessed_query_response, context_length)
                 table["score"].extend(self.accelerator.gather(score).float().cpu().numpy())
 
-p            if sampling:
+            if sampling:
                 break
         df = pd.DataFrame(table)
         # PR TODO: write df to pickle if not using wandb
