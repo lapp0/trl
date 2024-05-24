@@ -74,6 +74,9 @@ class fast_eval_mode(ContextDecorator):
     def __init__(self, model):
         self.model = model
 
+
+    """
+    # PR TODO: Revert
     def __enter__(self):
         self.was_training = self.model.training
         if self.was_training:
@@ -82,6 +85,12 @@ class fast_eval_mode(ContextDecorator):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.was_training:
             self.model.train()
+    """
+    def __enter__(self):
+        FastLanguageModel.for_inference(self.model)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        FastLanguageModel.for_training(self.model)
 
 
 def prepare_model_and_ref_model(

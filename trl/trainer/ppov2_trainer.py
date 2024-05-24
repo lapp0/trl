@@ -257,6 +257,7 @@ class PPOTrainer(PolicyTrainerBase):
         # calculate gradients and loss
         output = self.forward(self.model, query_responses)
         logits = output.logits[:, context_length - 1: -1]
+        logits.mean().backward(retain_graph=True)
         logits /= self.args.temperature + 1e-7
         new_all_logprobs = F.log_softmax(logits, dim=-1)
         new_logprobs = torch.gather(new_all_logprobs, 2, responses.unsqueeze(-1)).squeeze(-1)
