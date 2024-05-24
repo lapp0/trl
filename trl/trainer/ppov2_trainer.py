@@ -132,6 +132,14 @@ class PolicyAndValueWrapper(nn.Module):
         self.policy.enable_input_require_grads()
         self.value_model.enable_input_require_grads()
 
+    def eval(self):
+        self.policy.eval()
+        self.value_model.eval()
+
+    def train(self):
+        self.policy.train()
+        self.value_model.train()
+
 
 class PPOTrainer(PolicyTrainerBase):
     _tag_names = ["trl", "ppo"]
@@ -284,6 +292,8 @@ class PPOTrainer(PolicyTrainerBase):
             (pg_losses2 > pg_losses).float(), ~padding_mask
         )
         loss = pg_loss + self.args.vf_coef * vf_loss
+
+        import pdb;pdb.set_trace()
 
         # calculate metrics
         with torch.no_grad():
