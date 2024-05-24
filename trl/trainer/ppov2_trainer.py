@@ -279,8 +279,11 @@ class PPOTrainer(PolicyTrainerBase):
             (vf_losses2 > vf_losses1).float(), ~padding_mask_p1
         )
         logprobs_diff = new_logprobs - gen_logprobs
-        logprobs_diff = logprobs_diff[padding_mask]
         ratio = torch.exp(logprobs_diff)
+
+        ratio = ratio[padding_mask]
+        advantages = advantages[padding_mask]
+
         pg_losses = -advantages * ratio
         pg_losses2 = -advantages * torch.clamp(
             ratio,
@@ -289,9 +292,9 @@ class PPOTrainer(PolicyTrainerBase):
         )
         pg_loss_max = torch.max(pg_losses, pg_losses2)
         pg_loss = masked_mean(pg_loss_max, ~padding_mask)
-        pg_clipfrac = masked_mean(
-            (pg_losses2 > pg_losses).float(), ~padding_mask
-        )
+        #pg_clipfrac = masked_mean(
+        #    (pg_losses2 > pg_losses).float(), ~padding_mask
+        #)
         loss = pg_loss + self.args.vf_coef * vf_loss
 
         # calculate metrics
@@ -305,7 +308,7 @@ class PPOTrainer(PolicyTrainerBase):
                 "objective/rlhf_reward": mean_non_score_reward + scores.mean(),
                 "objective/scores": self.accelerator.gather(scores.mean()).mean().item(),
                 "policy/approxkl_avg": 0.5 * (logprobs_diff**2).mean(),
-                "policy/clipfrac_avg": pg_clipfrac.mean(),
+                #"policy/clipfrac_avg": pg_clipfrac.mean(),
                 "loss/policy_avg": self.accelerator.gather(pg_loss).mean().item(),
                 "loss/value_avg": vf_loss.mean(),
                 "val/clipfrac_avg": vf_clipfrac.mean(),
