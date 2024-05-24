@@ -274,10 +274,9 @@ class PPOTrainer(PolicyTrainerBase):
         vf_losses1 = torch.square(vpred - returns)
         vf_losses2 = torch.square(vpredclipped - returns)
         vf_loss_max = torch.max(vf_losses1, vf_losses2)
-        vf_loss = 0.5 * masked_mean(vf_loss_max, ~padding_mask_p1)
-        vf_clipfrac = masked_mean(
-            (vf_losses2 > vf_losses1).float(), ~padding_mask_p1
-        )
+        vf_loss = 0.5 * vf_loss_max[~padding_mask_p1].mean()
+        vf_clipfrac = (vf_losses2 > vf_losses1).float()[~padding_mask_p1].mean()
+
         logprobs_diff = new_logprobs - gen_logprobs
         ratio = torch.exp(logprobs_diff)
 
