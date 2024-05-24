@@ -225,8 +225,12 @@ class PPOTrainer(PolicyTrainerBase):
             padding_mask_p1 = response_idxs > (sequence_lengths_p1.unsqueeze(1))
             values = torch.masked_fill(values, padding_mask_p1, 0)
 
+            """
             gen_logprobs = torch.masked_fill(gen_logprobs, padding_mask, INVALID_LOGPROB)
             ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask, INVALID_LOGPROB)
+            """
+            gen_logprobs = gen_logprobs[padding_mask]
+            ref_logprobs = ref_logprobs[padding_mask]
 
             # 4. compute rewards
             kl = gen_logprobs - ref_logprobs
@@ -260,9 +264,13 @@ class PPOTrainer(PolicyTrainerBase):
         logits /= self.args.temperature + 1e-7
         new_all_logprobs = F.log_softmax(logits, dim=-1)
         new_logprobs = torch.gather(new_all_logprobs, 2, responses.unsqueeze(-1)).squeeze(-1)
+
+        """
         new_logprobs = torch.masked_fill(
             new_logprobs, padding_mask, INVALID_LOGPROB
         )
+        """
+        new_logprobs = new_logprobs[padding_mask]
         vpred = output.vpred[:, context_length - 1: -1].squeeze(-1)
         vpred = torch.masked_fill(vpred, padding_mask_p1, 0)
         vpredclipped = torch.clamp(
