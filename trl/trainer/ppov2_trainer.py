@@ -281,8 +281,9 @@ class PPOTrainer(PolicyTrainerBase):
         logprobs_diff = new_logprobs - gen_logprobs
         ratio = torch.exp(logprobs_diff)
 
-        ratio = ratio[padding_mask]
-        advantages = advantages[padding_mask]
+        ratio = ratio[~padding_mask]
+        advantages = advantages[~padding_mask]
+        vf_loss = vf_loss[~padding_mask_p1]
 
         pg_losses = -advantages * ratio
         pg_losses2 = -advantages * torch.clamp(
